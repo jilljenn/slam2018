@@ -58,7 +58,7 @@ def main():
 
     args_train = '../data_{:s}/{:s}.slam.20171218.train'.format(args.dataset, args.dataset)
     args_valid = '../data_{:s}/{:s}.slam.20171218.dev'.format(args.dataset, args.dataset)
-    args_test = '../test.{:s}'.format(args.dataset)
+    args_test = '../data_{:s}/{:s}.slam.20171218.test'.format(args.dataset, args.dataset)
     DATASET_DIR = os.path.join('data', '{:s}_{:s}'.format(args.spec, args.dataset))
     if not os.path.isdir(DATASET_DIR):
         os.makedirs(DATASET_DIR)
@@ -75,7 +75,7 @@ def main():
 
     # Assert that the train course matches the test course
     print(os.path.basename(args_train), os.path.basename(args_valid), os.path.basename(args_test))
-    assert os.path.basename(args_train)[:5] == os.path.basename(args_valid)[:5] == os.path.basename(args_test)[5:]
+    assert os.path.basename(args_train)[:5] == os.path.basename(args_valid)[:5] == os.path.basename(args_test)[:5]
 
     entities = defaultdict(set)
     if not os.path.isfile('{:s}.pickle'.format(args.dataset)):
@@ -130,6 +130,8 @@ def main():
                 max_time = max(values)
         if key in interesting_keys:
             all_entities.update(entities[key])
+    all_entities.add('time')
+    all_entities.add('days')
     encode = dict(zip(all_entities, range(len(all_entities))))
 
     nb = Counter()
@@ -150,7 +152,8 @@ def main():
             print('Erreur', instance)
             raise Exception
         assert None not in ids
-        Xi_train.append(ids + [0, 0])
+        # Xi_train.append(ids + [0, 0])
+        Xi_train.append(ids + [encode['time'], encode['days']])
         user_id, item_id = ids[:2]
         this_time = instance['time'] if instance['time'] is not None else 0
         # print('this time has type', type(this_time))
@@ -177,7 +180,8 @@ def main():
         instance['countries'] = instance['countries'][0]  # Only keep first country
         ids = [encode[key + '=' + str(instance.get(key))] for key in interesting_keys]  # user_id, item_id, etc.
         assert None not in ids
-        Xi_valid.append(ids + [0, 0])
+        # Xi_valid.append(ids + [0, 0])
+        Xi_valid.append(ids + [encode['time'], encode['days']])
         user_id, item_id = ids[:2]
         this_time = instance['time'] if instance['time'] is not None else 0
         line = [1] * len(ids) + [this_time / max_time, instance['days']]
@@ -204,7 +208,8 @@ def main():
         ids = [encode[key + '=' + str(instance.get(key))] for key in interesting_keys]  # user_id, item_id, etc.
         assert None not in ids
         user_id, item_id = ids[:2]
-        Xi_test.append(ids + [0, 0])
+        # Xi_test.append(ids + [0, 0])
+        Xi_test.append(ids + [encode['time'], encode['days']])
         this_time = instance['time'] if instance['time'] is not None else 0
         line = [1] * len(ids) + [this_time / max_time, instance['days']]
         assert None not in line
