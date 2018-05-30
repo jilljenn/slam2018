@@ -153,11 +153,13 @@ def main():
             raise Exception
         assert None not in ids
         # Xi_train.append(ids + [0, 0])
-        Xi_train.append(ids + [encode['time'], encode['days']])
+        # Xi_train.append(ids + [encode['time'], encode['days']])
+        Xi_train.append(ids)
         user_id, item_id = ids[:2]
         this_time = instance['time'] if instance['time'] is not None else 0
         # print('this time has type', type(this_time))
-        line = [1] * len(ids) + [this_time / max_time, instance['days']]
+        # line = [1] * len(ids) + [this_time / max_time, instance['days']]
+        line = [1] * len(ids)
         Xv_train.append(line)
         is_correct = 1 - int(training_labels[instance_data.instance_id])
         y_train.append(is_correct)
@@ -181,10 +183,12 @@ def main():
         ids = [encode[key + '=' + str(instance.get(key))] for key in interesting_keys]  # user_id, item_id, etc.
         assert None not in ids
         # Xi_valid.append(ids + [0, 0])
-        Xi_valid.append(ids + [encode['time'], encode['days']])
+        # Xi_valid.append(ids + [encode['time'], encode['days']])
+        Xi_valid.append(ids)
         user_id, item_id = ids[:2]
         this_time = instance['time'] if instance['time'] is not None else 0
-        line = [1] * len(ids) + [this_time / max_time, instance['days']]
+        # line = [1] * len(ids) + [this_time / max_time, instance['days']]
+        line = [1] * len(ids)
         assert None not in line
         Xv_valid.append(line)
         is_correct = 1 - int(valid_labels[instance_data.instance_id])
@@ -209,9 +213,11 @@ def main():
         assert None not in ids
         user_id, item_id = ids[:2]
         # Xi_test.append(ids + [0, 0])
-        Xi_test.append(ids + [encode['time'], encode['days']])
+        # Xi_test.append(ids + [encode['time'], encode['days']])
+        Xi_test.append(ids)
         this_time = instance['time'] if instance['time'] is not None else 0
-        line = [1] * len(ids) + [this_time / max_time, instance['days']]
+        # line = [1] * len(ids) + [this_time / max_time, instance['days']]
+        line = [1] * len(ids)
         assert None not in line
         Xv_test.append(line)
         test_keys.append(instance['instance_id'])
