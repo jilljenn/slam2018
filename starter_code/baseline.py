@@ -17,7 +17,7 @@ code does not depend on any other Python libraries besides future.
 """
 
 import argparse
-from scipy.sparse import lil_matrix, save_npz
+from scipy.sparse import lil_matrix, save_npz, dok_matrix
 import numpy as np
 from collections import defaultdict, namedtuple, Counter
 from io import open
@@ -109,8 +109,11 @@ def main():
                 entities[key].add(instance[key])
             elif key not in {'morphological_features', 'countries'}:
                 entities[key].add('{:s}={:s}'.format(key, str(instance[key])))
+                # if key == 'token':
+                #     entities[key].add('wins={:s}'.format(str(instance[key])))
+                #     entities[key].add('fails={:s}'.format(str(instance[key])))
             elif key == 'countries':
-                entities[key].update(['countries={:s}'.format(country) for country in instance[key]])
+                entities[key].update(['|countries={:s}'.format(country) for country in instance[key]])
             else:
                 for subkey in instance[key]:
                     entities[subkey].add(None)
@@ -118,7 +121,8 @@ def main():
     print(list(training_labels.values())[:5])
     all_entities = set()  # defaultdict(dict)
     # interesting_keys = ['user', 'token', 'part_of_speech', 'Definite', 'Gender', 'Number', 'fPOS', 'dependency_label', 'exercise_index', 'token_index', 'countries', 'client', 'session', 'format', 'Person', 'PronType', 'Mood', 'Tense', 'VerbForm']
-    interesting_keys = ['user', 'token', 'part_of_speech', 'dependency_label', 'exercise_index', 'countries', 'client', 'session', 'format']
+    # interesting_keys = ['user', 'token', 'part_of_speech', 'dependency_label', 'exercise_index', 'countries', 'client', 'session', 'format']
+    interesting_keys = ['user', 'token', 'client', 'session', 'format']
     for key in entities:
         print(key, len(entities[key]))
         if len(entities[key]) < 100:
@@ -128,11 +132,20 @@ def main():
             print(values[:6], values[-10:])
             if key == 'time':
                 max_time = max(values)
-        if key in interesting_keys:
+        else:
+            print(list(entities[key])[:10])
+        if key in interesting_keys or key == 'countries':
             all_entities.update(entities[key])
-    all_entities.add('time')
-    all_entities.add('days')
-    encode = dict(zip(all_entities, range(len(all_entities))))
+    #all_entities.add('time')
+    #all_entities.add('days')
+    encode = dict(zip(sorted(all_entities), range(len(all_entities))))
+    nb_entities = len(all_entities)
+
+    # with open('entities.txt', 'w') as f:
+    #     f.write('\n'.join(sorted(all_entities)))
+
+    adj = dok_matrix((nb_entities, nb_entities))
+    already_done = set()
 
     nb = Counter()
     train = []
@@ -145,7 +158,11 @@ def main():
         instance = instance_data.__dict__
         if not follow_spec(args.spec, instance):
             continue
-        instance['countries'] = instance['countries'][0]  # Only keep first country
+        # instance['countries'] = instance['countries'][0]  # Only keep first country
+        if instance['user'] not in already_done:
+            for country in instance['countries']:
+                adj[encode['user=' + instance['user']], encode['|countries=' + country]] = 1
+            already_done.add(instance['user'])
         try:
             ids = [encode[key + '=' + str(instance.get(key))] for key in interesting_keys]  # user_id, item_id, etc.
         except KeyError:
@@ -155,11 +172,13 @@ def main():
         # Xi_train.append(ids + [0, 0])
         # Xi_train.append(ids + [encode['time'], encode['days']])
         Xi_train.append(ids)
+        # Xi_train.append(ids + [encode['fails={:s}'.format(instance['token'])], encode['wins={:s}'.format(instance['token'])]])
         user_id, item_id = ids[:2]
         this_time = instance['time'] if instance['time'] is not None else 0
         # print('this time has type', type(this_time))
         # line = [1] * len(ids) + [this_time / max_time, instance['days']]
         line = [1] * len(ids)
+        # line = [1] * len(ids) + [nb[(user_id, item_id, 0)], nb[(user_id, item_id, 1)]]
         Xv_train.append(line)
         is_correct = 1 - int(training_labels[instance_data.instance_id])
         y_train.append(is_correct)
@@ -179,16 +198,22 @@ def main():
         instance = instance_data.__dict__
         if not follow_spec(args.spec, instance):
             continue
-        instance['countries'] = instance['countries'][0]  # Only keep first country
+        # instance['countries'] = instance['countries'][0]  # Only keep first country
+        if instance['user'] not in already_done:
+            for country in instance['countries']:
+                adj[encode['user=' + instance['user']], encode['|countries=' + country]] = 1
+            already_done.add(instance['user'])
         ids = [encode[key + '=' + str(instance.get(key))] for key in interesting_keys]  # user_id, item_id, etc.
         assert None not in ids
         # Xi_valid.append(ids + [0, 0])
         # Xi_valid.append(ids + [encode['time'], encode['days']])
         Xi_valid.append(ids)
+        # Xi_valid.append(ids + [encode['fails={:s}'.format(instance['token'])], encode['wins={:s}'.format(instance['token'])]])
         user_id, item_id = ids[:2]
         this_time = instance['time'] if instance['time'] is not None else 0
         # line = [1] * len(ids) + [this_time / max_time, instance['days']]
         line = [1] * len(ids)
+        # line = [1] * len(ids) + [nb[(user_id, item_id, 0)], nb[(user_id, item_id, 1)]]
         assert None not in line
         Xv_valid.append(line)
         is_correct = 1 - int(valid_labels[instance_data.instance_id])
@@ -208,16 +233,22 @@ def main():
         instance = instance_data.__dict__
         if not follow_spec(args.spec, instance):
             continue
-        instance['countries'] = instance['countries'][0]  # Only keep first country
+        # instance['countries'] = instance['countries'][0]  # Only keep first country
+        if instance['user'] not in already_done:
+            for country in instance['countries']:
+                adj[encode['user=' + instance['user']], encode['|countries=' + country]] = 1
+            already_done.add(instance['user'])
         ids = [encode[key + '=' + str(instance.get(key))] for key in interesting_keys]  # user_id, item_id, etc.
         assert None not in ids
         user_id, item_id = ids[:2]
         # Xi_test.append(ids + [0, 0])
         # Xi_test.append(ids + [encode['time'], encode['days']])
         Xi_test.append(ids)
+        # Xi_test.append(ids + [encode['fails={:s}'.format(instance['token'])], encode['wins={:s}'.format(instance['token'])]])
         this_time = instance['time'] if instance['time'] is not None else 0
         # line = [1] * len(ids) + [this_time / max_time, instance['days']]
         line = [1] * len(ids)
+        # line = [1] * len(ids) + [nb[(user_id, item_id, 0)], nb[(user_id, item_id, 1)]]
         assert None not in line
         Xv_test.append(line)
         test_keys.append(instance['instance_id'])
@@ -227,6 +258,7 @@ def main():
         f.write('\n'.join(test_keys))
     pd.DataFrame(test).to_csv('test.csv', index=False, header=False)
 
+    save_npz('adj.npz', adj.tocsr())
     print('train', len(train), 'valid', len(valid), 'test', len(test))
 
     with open('config.yml', 'w') as f:
@@ -258,7 +290,7 @@ def main():
     for instance in test_instances:
         features.update(instance.features)
 
-    # with open('features.rst', 'w') as f:
+    # with open('features0.rst', 'w') as f:
     #     f.write('\n'.join(features))
     # encode_features = dict(zip(features, range(len(features))))
     # print('oh le nombre de features', len(features))

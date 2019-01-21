@@ -1,7 +1,12 @@
-all:
-	python baseline.py --dataset fr_en --spec first
-	python baseline.py --dataset es_en --spec first
-	python baseline.py --dataset en_es --spec first
+reborn:
+	time python baseline.py --dataset fr_en --spec reborn_adj
+	# time python baseline.py --dataset es_en --spec reborn
+	# time python baseline.py --dataset en_es --spec reborn
+
+pfa:
+	python baseline.py --dataset fr_en --spec pfa
+	python baseline.py --dataset es_en --spec pfa
+	python baseline.py --dataset en_es --spec pfa
 
 last:
 	python baseline.py --dataset fr_en --spec last
