@@ -49,7 +49,7 @@ def main():
     parser = argparse.ArgumentParser(description='Duolingo shared task baseline model')
     parser.add_argument('--dataset', help='Name those features', default='duolingo2019')
     parser.add_argument('--train', help='Training file name', required=True)
-    # parser.add_argument('--val', help='Validation file name', required=True)
+    parser.add_argument('--val', help='Validation file name', required=True)
     parser.add_argument('--test', help='Test file name, to make predictions on', required=True)
     parser.add_argument('--pred', help='Output file name for predictions, defaults to test_name.pred')
     args = parser.parse_args()
@@ -62,19 +62,23 @@ def main():
         args.pred = args.test + '.pred'
 
     assert os.path.isfile(args.train)
+    assert os.path.isfile(args.val)
     assert os.path.isfile(args.test)
 
     # Assert that the train course matches the test course
     assert os.path.basename(args.train)[:5] == os.path.basename(args.test)[:5]
 
-
     entities = defaultdict(set)
     if not os.path.isfile('{:s}.pickle'.format(args.dataset)):
         training_data, training_labels = load_data(args.train)
-        valid_data = training_data[-5:]
-        valid_labels = training_labels
-        training_data = training_data[:-5]
+        valid_data = load_data(args.val)
         test_data = load_data(args.test)
+
+        df_valid = pd.read_csv(args.val + '.key', sep=' ', names='kv')
+        valid_labels = dict(zip(df_valid['k'], df_valid['v']))
+
+        df_test = pd.read_csv(args.test + '.key', sep=' ', names='kv')
+        test_labels = dict(zip(df_test['k'], df_test['v']))
 
         with open('{:s}.pickle'.format(args.dataset), 'wb') as f:
             pickle.dump({
@@ -82,7 +86,8 @@ def main():
                 'training_labels': training_labels,
                 'valid_data': valid_data,
                 'valid_labels': valid_labels,
-                'test_data': test_data
+                'test_data': test_data,
+                'test_labels': test_labels
             }, f, pickle.HIGHEST_PROTOCOL)
     else:
         with open('{:s}.pickle'.format(args.dataset), 'rb') as f:
@@ -92,7 +97,12 @@ def main():
             valid_data = backup['valid_data']
             valid_labels = backup['valid_labels']
             test_data = backup['test_data']
+            test_labels = backup['test_labels']
 
+    with open('{:s}-all.keys'.format(args.dataset), 'w') as f:
+        for instance_data in training_data + valid_data + test_data:
+            f.write(instance_data.instance_id + '\n')
+            
     with open('{:s}.keys'.format(args.dataset), 'w') as f:
         for instance_data in test_data:
             f.write(instance_data.instance_id + '\n')
@@ -117,7 +127,8 @@ def main():
     all_entities = set()  # defaultdict(dict)
     # interesting_keys = ['user', 'token', 'part_of_speech', 'Definite', 'Gender', 'Number', 'fPOS', 'dependency_label', 'exercise_index', 'token_index', 'countries', 'client', 'session', 'format', 'Person', 'PronType', 'Mood', 'Tense', 'VerbForm']
     # interesting_keys = ['user', 'token', 'part_of_speech', 'dependency_label', 'exercise_index', 'countries', 'client', 'session', 'format']
-    interesting_keys = ['user', 'token', 'client', 'session', 'format']
+    # interesting_keys = ['user', 'token', 'client', 'session', 'format']
+    interesting_keys = ['user', 'token']
     for key in entities:
         print(key, len(entities[key]))
         if len(entities[key]) < 100:
@@ -141,6 +152,8 @@ def main():
 
     adj = dok_matrix((nb_entities, nb_entities))
     already_done = set()
+
+    df = []
 
     nb = Counter()
     train = []
@@ -181,7 +194,9 @@ def main():
     np.save('Xi_train.npy', np.array(Xi_train))
     np.save('Xv_train.npy', np.array(Xv_train))
     np.save('y_train.npy', np.array(y_train))
-    pd.DataFrame(train).to_csv('train.csv', index=False, header=False)
+    df = pd.DataFrame(train)
+    df.to_csv('train.csv', index=False, header=False)
+    print('train.csv', df.shape)
 
     valid = []
     Xi_valid = []
@@ -214,11 +229,14 @@ def main():
     np.save('Xi_valid.npy', np.array(Xi_valid))
     np.save('Xv_valid.npy', np.array(Xv_valid))
     np.save('y_valid.npy', np.array(y_valid))
-    pd.DataFrame(valid).to_csv('valid.csv', index=False, header=False)
+    df = pd.DataFrame(valid)
+    df.to_csv('valid.csv', index=False, header=False)
+    print('valid.csv', df.shape)
 
     test = []
     Xi_test = []
     Xv_test = []
+    y_test = []
     test_keys = []
     test_user_ids = []
     for instance_data in test_data:
@@ -243,11 +261,17 @@ def main():
         assert None not in line
         Xv_test.append(line)
         test_keys.append(instance['instance_id'])
+        is_correct = 1 - int(test_labels[instance_data.instance_id])
+        y_test.append(is_correct)
+        test.append(ids + [is_correct, nb[(user_id, item_id, 0)], nb[(user_id, item_id, 1)]])
+        nb[(user_id, item_id, is_correct)] += 1
     np.save('Xi_test.npy', np.array(Xi_test))
     np.save('Xv_test.npy', np.array(Xv_test))
     with open('{:s}_test.keys'.format(args.dataset), 'w') as f:
         f.write('\n'.join(test_keys))
-    pd.DataFrame(test).to_csv('test.csv', index=False, header=False)
+    df = pd.DataFrame(test)
+    df.to_csv('test.csv', index=False, header=False)
+    print('test.csv', df.shape)
 
     with open('test_user_ids.txt', 'w') as f:
         f.write('\n'.join(test_user_ids))
@@ -281,7 +305,7 @@ def main():
     logistic_regression_model = LogisticRegression()
     # logistic_regression_model.train(training_instances, iterations=10)
 
-    predictions = logistic_regression_model.predict_test_set(test_instances)
+    # predictions = logistic_regression_model.predict_test_set(test_instances)
 
     ####################################################################################
     # This ends the baseline model code; now we just write predictions.                #

@@ -1,5 +1,8 @@
 reborn:
-	time python jilljenn2019.py --train ../data_fr_en/fr_en.slam.20190204.train --test ../data_fr_en/fr_en.slam.20190204.dev
+	time python jilljenn2019.py --dataset simplest \
+		--train ../data_fr_en/fr_en.slam.20190204.train \
+		--val ../data_fr_en/fr_en.slam.20190204.dev \
+		--test ../data_fr_en/fr_en.slam.20190204.test
 	# time python baseline2019.py --train ../data_fr_en/fr_en.slam.20190204.train --test ../data_fr_en/fr_en.slam.20190204.dev --pred ../data_fr_en/fr_en.slam.20190204.pred
 
 2017:
