@@ -74,10 +74,10 @@ def main():
         valid_data = load_data(args.val)
         test_data = load_data(args.test)
 
-        df_valid = pd.read_csv(args.val + '.key', sep=' ', names='kv')
+        df_valid = pd.read_csv(args.val + '.key', sep=' ', names=list('kv'))
         valid_labels = dict(zip(df_valid['k'], df_valid['v']))
 
-        df_test = pd.read_csv(args.test + '.key', sep=' ', names='kv')
+        df_test = pd.read_csv(args.test + '.key', sep=' ', names=list('kv'))
         test_labels = dict(zip(df_test['k'], df_test['v']))
 
         with open('{:s}.pickle'.format(args.dataset), 'wb') as f:
@@ -147,8 +147,8 @@ def main():
     encode = dict(zip(sorted(all_entities), range(len(all_entities))))
     nb_entities = len(all_entities)
 
-    # with open('entities.txt', 'w') as f:
-    #     f.write('\n'.join(sorted(all_entities)))
+    with open('entities.txt', 'w') as f:
+        f.write('\n'.join(sorted(all_entities)))
 
     adj = dok_matrix((nb_entities, nb_entities))
     already_done = set()
