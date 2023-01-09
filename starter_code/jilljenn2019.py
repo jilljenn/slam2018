@@ -128,7 +128,7 @@ def main():
     # interesting_keys = ['user', 'token', 'part_of_speech', 'Definite', 'Gender', 'Number', 'fPOS', 'dependency_label', 'exercise_index', 'token_index', 'countries', 'client', 'session', 'format', 'Person', 'PronType', 'Mood', 'Tense', 'VerbForm']
     # interesting_keys = ['user', 'token', 'part_of_speech', 'dependency_label', 'exercise_index', 'countries', 'client', 'session', 'format']
     # interesting_keys = ['user', 'token', 'client', 'session', 'format']
-    interesting_keys = ['user', 'token']
+    interesting_keys = ['user', 'token', 'format']
     for key in entities:
         print(key, len(entities[key]))
         if len(entities[key]) < 100:
@@ -155,6 +155,8 @@ def main():
 
     df = []
 
+    trainval_lines = []
+    test_lines = []
     nb = Counter()
     train = []
     Xi_train = []
@@ -190,6 +192,7 @@ def main():
         y_train.append(is_correct)
         train.append(ids + [is_correct, nb[(user_id, item_id, 0)], nb[(user_id, item_id, 1)]])
         nb[(user_id, item_id, is_correct)] += 1
+        trainval_lines.append(f'{is_correct} ' + ' '.join(f'{entity_id}:1' for entity_id in ids))
     os.chdir(DATASET_DIR)
     np.save('Xi_train.npy', np.array(Xi_train))
     np.save('Xv_train.npy', np.array(Xv_train))
@@ -226,12 +229,17 @@ def main():
         y_valid.append(is_correct)
         valid.append(ids + [is_correct, nb[(user_id, item_id, 0)], nb[(user_id, item_id, 1)]])
         nb[(user_id, item_id, is_correct)] += 1
+        trainval_lines.append(f'{is_correct} ' + ' '.join(f'{entity_id}:1' for entity_id in ids))
     np.save('Xi_valid.npy', np.array(Xi_valid))
     np.save('Xv_valid.npy', np.array(Xv_valid))
     np.save('y_valid.npy', np.array(y_valid))
     df = pd.DataFrame(valid)
     df.to_csv('valid.csv', index=False, header=False)
     print('valid.csv', df.shape)
+
+    with open('trainval_fr_en.libfm', 'w') as f:
+        for line in trainval_lines:
+            f.write(line + '\n')
 
     test = []
     Xi_test = []
@@ -265,6 +273,7 @@ def main():
         y_test.append(is_correct)
         test.append(ids + [is_correct, nb[(user_id, item_id, 0)], nb[(user_id, item_id, 1)]])
         nb[(user_id, item_id, is_correct)] += 1
+        test_lines.append(f'{is_correct} ' + ' '.join(f'{entity_id}:1' for entity_id in ids))
     np.save('Xi_test.npy', np.array(Xi_test))
     np.save('Xv_test.npy', np.array(Xv_test))
     with open('{:s}_test.keys'.format(args.dataset), 'w') as f:
@@ -272,6 +281,10 @@ def main():
     df = pd.DataFrame(test)
     df.to_csv('test.csv', index=False, header=False)
     print('test.csv', df.shape)
+
+    with open('test_fr_en.libfm', 'w') as f:
+        for line in test_lines:
+            f.write(line + '\n')
 
     with open('test_user_ids.txt', 'w') as f:
         f.write('\n'.join(test_user_ids))
